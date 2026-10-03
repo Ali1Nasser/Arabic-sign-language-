@@ -1,7 +1,7 @@
 name: Android APK - pretrained Arabic alphabet
 on:
   push:
-    branches: [feature/arabic-sign-fusion, feature/arabic-sign-fusion-v05, feature/egyptian-conversation-v06]
+    branches: [feature/arabic-sign-fusion, feature/arabic-sign-fusion-v05, feature/egyptian-conversation-v06, feature/egyptian-motion-v07]
   workflow_dispatch:
   pull_request:
     branches: [main]
@@ -26,6 +26,11 @@ jobs:
           python -m pip install 'tensorflow-cpu==2.15.1'
           python tools/prepare_model.py
           python tools/prepare_landmark_model.py
+      - name: Create six genuine animated vector MP4 videos
+        run: |
+          command -v ffmpeg >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg)
+          python -m pip install 'Pillow==11.3.0'
+          python tools/generate_motion_videos.py
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
@@ -44,6 +49,11 @@ jobs:
         run: gradle --no-daemon :app:assembleDebug
       - uses: actions/upload-artifact@v4
         with:
-          name: ArabicSignFusion-v06-Egyptian-APK
+          name: ArabicSignFusion-v07-Motion-APK
           path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: EgyptianStickman-Motion-MP4-v07
+          path: app/src/main/res/raw/motion_*.mp4
           if-no-files-found: error

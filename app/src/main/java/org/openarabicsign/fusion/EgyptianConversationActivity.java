@@ -77,6 +77,7 @@ public final class EgyptianConversationActivity extends ComponentActivity {
     String[] quick=EgyptianPhrasebook.QUICK;
     for(int i=0;i<quick.length;i+=2){final String a=quick[i],b=i+1<quick.length?quick[i+1]:"";
       if(!b.isEmpty())pair(body,a,()->entry.setText(a),b,()->entry.setText(b));else body.addView(button(a,()->entry.setText(a)));}
+    body.addView(button("🎞 شاهد حركات Stickman متحركة • ٦ فيديوهات MP4",()->startActivity(new Intent(this,EgyptianMotionActivity.class))));
     body.addView(label("نص ← إشارة مصرية • مكتبة الفيديوهات الشخصية",18,MINT));
     body.addView(label("الفيديو يظهر فقط بعد ما تسجّله أو تختاره وتراجع صحته مع شخص مُتقن للإشارة المصرية؛ لا نولّد إشارات غير مؤكدة.",13,FG));
     pair(body,"اعرض الإشارة",this::showSign,"أضف تسجيل",this::chooseClip);
