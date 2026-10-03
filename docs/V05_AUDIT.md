@@ -7,3 +7,5 @@
 **No unsupported claim**: v0.5 changes decoding and repetition behaviour, not the trained RGB CNN's measured test accuracy. Word/sentence models remain out of scope without matched assets and dialect-specific evaluation.
 
 **Acceptance checks**: stable 3 frames, one-frame tracking dropout cannot rearm, two missing-hand observations rearm, low-confidence/ambiguous cannot rearm, duplicate glyph scores aggregate, nonfinite rejected, GitHub CI builds APK and checks model conversion.
+
+Optional HF model: input [1,63], output [1,43]; pinned encoder SHA256 88ee7638cfb47bcf7ca2e4d7fde226fac66789662ee7884dca1d2018c2cc08af, TFLite SHA256 64c468abbc3a6c9bf8a5faf6ece4daed2cedd8a9ebd5135ddc3ec9d7b28e1f7a; labels order verified via safe pickle opcode inspection. Experimental on-device mode only; do not mix unmatched confidence scores or dialects before validated benchmarking.

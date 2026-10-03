@@ -23,6 +23,10 @@ public final class TestGate {
     ok(ClassScores.select(new float[]{Float.NaN,1f},new String[]{"أ","ب"})==null);
     ok(ClassScores.select(new float[]{0f,0f},new String[]{"أ","ب"})==null);
     ok(ClassScores.select(new float[]{1f},new String[]{"أ","ب"})==null);
+    ok(org.openarabicsign.fusion.LandmarkLabels.ORIGINAL.length==43);
+    ok(org.openarabicsign.fusion.LandmarkLabels.ORIGINAL[2].equals("10"));
+    ok(org.openarabicsign.fusion.LandmarkLabels.ORIGINAL[33].equals("space"));
+    ok(org.openarabicsign.fusion.LandmarkLabels.GLYPHS[33].equals(" "));
     System.out.println("PASS: stable, held, release, low margin, low confidence, duplicate labels, invalid scores");
   }
 }
