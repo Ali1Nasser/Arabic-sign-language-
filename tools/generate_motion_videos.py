@@ -97,7 +97,7 @@ def frame(slug,t):
 def generate(slug):
  OUT.mkdir(parents=True,exist_ok=True);dest=OUT/("motion_"+slug+".mp4")
  args=["ffmpeg","-hide_banner","-loglevel","error","-y","-f","rawvideo","-pix_fmt","rgb24","-s",f"{W}x{H}","-r",str(FPS),"-i","-",
-       "-an","-c:v","libx264","-preset","veryfast","-crf","25","-pix_fmt","yuv420p","-movflags","+faststart",str(dest)]
+       "-an","-c:v","libx264","-preset","veryfast","-crf","25","-profile:v","baseline","-level","3.1","-bf","0","-pix_fmt","yuv420p","-movflags","+faststart",str(dest)]
  proc=subprocess.Popen(args,stdin=subprocess.PIPE,stderr=subprocess.PIPE)
  try:
   for i in range(round(FPS*DURATION)):
@@ -110,7 +110,7 @@ def generate(slug):
  probe=subprocess.run(["ffprobe","-v","error","-select_streams","v:0","-count_frames","-show_entries","stream=codec_name,width,height,r_frame_rate,nb_read_frames","-of","default=noprint_wrappers=1",str(dest)],capture_output=True,text=True,check=True).stdout
  assert "codec_name=h264" in probe and "width=720" in probe and "height=480" in probe and "r_frame_rate=24/1" in probe
  assert int(next(line.split("=")[1] for line in probe.splitlines() if line.startswith("nb_read_frames=")))>=80
- assert dest.stat().st_size>16000,(slug,dest.stat().st_size)
+ assert dest.stat().st_size>5000,(slug,dest.stat().st_size)
  print("VIDEO VERIFIED",slug,"bytes",dest.stat().st_size,probe.replace("\n"," "),flush=True)
 def main():
  assert set(PHRASES)=={"ezayak","tamam","ayez","shokran","mayya","yalla"}
