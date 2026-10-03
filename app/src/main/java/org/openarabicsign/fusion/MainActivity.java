@@ -107,6 +107,7 @@ public final class MainActivity extends ComponentActivity {
     LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setBackgroundColor(Color.rgb(9,19,32));root.setLayoutDirection(1);
     setContentView(root);
     root.addView(label("إسمعني | Arabic Sign Fusion",22,Color.rgb(67,224,196)));
+    root.addView(button("🇪🇬 محادثة مصري • صوت ↔ نص ↔ مكتبة فيديو إشارة",()->{Intent open=new Intent(this,EgyptianConversationActivity.class);open.putExtra("sign_text",sentence);startActivity(open);}));
     message=label("جارٍ تجهيز نموذج GitHub ...",13,Color.WHITE);root.addView(message);
     preview=new PreviewView(this);preview.setImplementationMode(PreviewView.ImplementationMode.COMPATIBLE);
     root.addView(preview,new LinearLayout.LayoutParams(-1,0,1f));

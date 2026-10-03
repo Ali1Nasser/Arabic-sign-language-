@@ -19,3 +19,12 @@ Licensing: the combined mobile project is GPL-3.0 due to CNN source/model integr
 ## Experimental 43-class HF engine (v0.5)
 
 Optional second offline hand-landmark TFLite mode; explicitly switch in app. HF repo katyy2000/arabic-sign-language-recognition MIT, pinned revision dc7db37c218a6172f832eaf5eb890fbe7ec8e479. CI checks the exact 43-label order from the 492-byte encoder without executing pickle, SHA256 verifies both assets, and validates [1,63] → [1,43] tensors. No ensemble, accuracy gain, training-time mirroring parity, or unseen-signer generalization claimed. Original RGB 32-class engine remains the default.
+
+## v0.6 Egyptian conversation experience (Rylo-inspired, no Rylo code copied)
+The original two offline Arabic alphabet engines remain intact. New native EgyptianConversationActivity provides:
+- Egyptian Arabic typed conversation, common quick replies, Android speech recognition via RecognizerIntent with ar-EG request (availability/network varies by device), and Android ar-EG text-to-speech (requires an installed supporting voice);
+- locally saved dialogue and user-curated **Egyptian Sign Language** video library, with optional import/record, playback, exact normalized phrase matching, deletion, and 80 MB file-size cap;
+- existing recognized fingerspelling sent to conversation with explicit **alphabet-only/non-Egyptian-model** disclosure.
+No universal Egyptian sign-to-text model is claimed or included. Text-to-sign only displays user-provided recordings explicitly mapped to the requested phrase. App retains GPL-3.0 obligations. No Rylo app source, model or branding is copied. Rylo Sign Translate is CC BY-NC-SA for free-use tiers / separate commercial license: https://rylo.com/sign/translate/legal/terms/
+Egyptian sign research/dataset candidate (not bundled): Métwalli (2026), 55 classes / 400+ clips, CC BY 4.0: https://data.mendeley.com/datasets/39tbt2jd7r
+Petersamy18 DynamicModel.h5 is unlicensed in public GitHub; do not distribute or claim it as deployed without explicit rights and independent model validation.
