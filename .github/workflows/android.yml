@@ -32,10 +32,15 @@ jobs:
         run: |
           echo "ANDROID_HOME=$ANDROID_HOME"
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Test recognition stabilization
+        run: |
+          mkdir -p /tmp/gate_classes
+          javac -d /tmp/gate_classes app/src/main/java/org/openarabicsign/fusion/PredictionGate.java tools/TestGate.java
+          java -cp /tmp/gate_classes TestGate
       - name: Build installable debug APK
         run: gradle --no-daemon :app:assembleDebug
       - uses: actions/upload-artifact@v4
         with:
-          name: ArabicSignFusion-debug-APK
+          name: ArabicSignFusion-Unified-v04-APK
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error

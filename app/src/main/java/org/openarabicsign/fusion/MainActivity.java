@@ -1,7 +1,9 @@
 package org.openarabicsign.fusion;
 
 import android.Manifest;
+import android.app.AlertDialog;
 import android.content.ClipData;
+import android.content.Intent;
 import android.content.ClipboardManager;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
@@ -12,6 +14,7 @@ import android.os.SystemClock;
 import android.speech.tts.TextToSpeech;
 import android.view.Gravity;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -44,6 +47,7 @@ import java.util.concurrent.Executors;
 public final class MainActivity extends ComponentActivity {
   private static final String[] LABELS={"ع","ال","أ","ب","د","ط","ض","ف","ج","غ","ه","ه","ج","ك","خ","لا","ل","م","ن","ر","ص","س","ش","ت","ط","ث","ذ","ت","و","ى","ي","ز"};
   private final ExecutorService worker=Executors.newSingleThreadExecutor();
+  private final PredictionGate gate=new PredictionGate();
   private Interpreter model;
   private HandLandmarker handTracker;
   private ProcessCameraProvider provider;
@@ -103,15 +107,24 @@ public final class MainActivity extends ComponentActivity {
     transcript=label("",22,Color.WHITE);transcript.setMinHeight(dp(60));transcript.setTextIsSelectable(true);content.addView(transcript);
     LinearLayout buttons=new LinearLayout(this);
     buttons.addView(button("تراجع",()->{if(!sentence.isEmpty()){int cut=sentence.offsetByCodePoints(sentence.length(),-1);sentence=sentence.substring(0,cut);updateTranscript();}}),new LinearLayout.LayoutParams(0,dp(50),1));
-    buttons.addView(button("مسح",()->{sentence="";lastSign="";streak=0;updateTranscript();}),new LinearLayout.LayoutParams(0,dp(50),1));
+    buttons.addView(button("مسح",()->new AlertDialog.Builder(this).setTitle("مسح النص؟").setMessage("سيُحذف النص المحفوظ بالكامل.").setNegativeButton("إلغاء",null).setPositiveButton("مسح",(d,w)->{sentence="";gate.reset();updateTranscript();}).show()),new LinearLayout.LayoutParams(0,dp(50),1));
     buttons.addView(button("مسافة",()->{sentence+=" ";updateTranscript();}),new LinearLayout.LayoutParams(0,dp(50),1));
     content.addView(buttons);
     LinearLayout tools=new LinearLayout(this);
     tools.addView(button("استماع 🔊",()->{if(speaker!=null&&!sentence.isEmpty())speaker.speak(sentence,TextToSpeech.QUEUE_FLUSH,null,"arabic");}),new LinearLayout.LayoutParams(0,dp(50),1));
     tools.addView(button("نسخ",()->{((ClipboardManager)getSystemService(CLIPBOARD_SERVICE)).setPrimaryClip(ClipData.newPlainText("ArabicSignFusion",sentence));Toast.makeText(this,"تم النسخ",Toast.LENGTH_SHORT).show();}),new LinearLayout.LayoutParams(0,dp(50),1));
-    tools.addView(button("تبديل الكاميرا",()->{cameraFacing=cameraFacing==CameraSelector.LENS_FACING_FRONT?CameraSelector.LENS_FACING_BACK:CameraSelector.LENS_FACING_FRONT;lastSign="";streak=0;bindCamera();}),new LinearLayout.LayoutParams(0,dp(50),1));
+    tools.addView(button("تبديل الكاميرا",()->{cameraFacing=cameraFacing==CameraSelector.LENS_FACING_FRONT?CameraSelector.LENS_FACING_BACK:CameraSelector.LENS_FACING_FRONT;gate.reset();bindCamera();}),new LinearLayout.LayoutParams(0,dp(50),1));
     content.addView(tools);
+    LinearLayout extra=new LinearLayout(this);
+    extra.addView(button("تصحيح / إضافة",this::editTranscript),new LinearLayout.LayoutParams(0,dp(50),1));
+    extra.addView(button("مشاركة",()->{Intent intent=new Intent(Intent.ACTION_SEND);intent.setType("text/plain");intent.putExtra(Intent.EXTRA_TEXT,sentence);startActivity(Intent.createChooser(intent,"مشاركة النص العربي"));}),new LinearLayout.LayoutParams(0,dp(50),1));
+    extra.addView(button("الأوضاع",()->new AlertDialog.Builder(this).setTitle("Recognition modes").setMessage("النموذج المدمج: ٣٢ تصنيفاً للحروف العربية يعمل دون إنترنت.\n\nEsm3ny ONNX: النموذج الأصلي best_final_2.onnx غير منشور؛ مرجعه محفوظ في المشروع.\n\nوضع الكلمات ٨٩ تصنيفاً: يتطلب conv1_lstm.keras غير المنشور، لذلك ليس مفعّلاً في APK.").setPositiveButton("موافق",null).show()),new LinearLayout.LayoutParams(0,dp(50),1));
+    content.addView(extra);
     content.addView(label("تعرف تجريبي على الحروف المنفردة فقط. كَوِّن النص حرفاً بحرف؛ ليس مترجماً طبياً أو فورياً للجمل.",12,Color.LTGRAY));
+  }
+  private void editTranscript(){
+    EditText field=new EditText(this);field.setSingleLine(false);field.setText(sentence);field.setSelectAllOnFocus(false);field.setHint("اكتب أو صحح النص هنا");
+    new AlertDialog.Builder(this).setTitle("تعديل النص الناتج").setView(field).setNegativeButton("إلغاء",null).setPositiveButton("حفظ",(d,w)->{sentence=field.getText().toString();updateTranscript();}).show();
   }
   private void tell(String s){runOnUiThread(()->{if(alive)message.setText(s);});}
   private void updateTranscript(){if(transcript!=null)transcript.setText(sentence.isEmpty()?"—":sentence);getPreferences(MODE_PRIVATE).edit().putString("sentence",sentence).apply();}
@@ -136,11 +149,11 @@ public final class MainActivity extends ComponentActivity {
           if(!alive||model==null||handTracker==null||now-lastInference<700)return;
           lastInference=now;
           Result result=infer(frame.toBitmap(),frame.getImageInfo().getRotationDegrees(),cameraFacing==CameraSelector.LENS_FACING_FRONT);
-          if(result==null){lastSign="";streak=0;runOnUiThread(()->{if(alive)recognized.setText("لا توجد إشارة واضحة");});return;}
+          if(result==null){gate.update(null);runOnUiThread(()->{if(alive)recognized.setText("لا توجد إشارة واضحة");});return;}
           final String s=result.sign;final int percent=Math.round(result.confidence*100);
-          if(s.equals(lastSign))streak++;else{lastSign=s;streak=1;}
+          String stable=gate.update(s);
           runOnUiThread(()->{if(alive)recognized.setText(s+" • "+percent+"%");});
-          if(streak>=3 && now-lastCommit>1400){lastCommit=now;streak=0;runOnUiThread(()->{if(alive){sentence+=s;updateTranscript();}});}
+          if(stable!=null)runOnUiThread(()->{if(alive){sentence+=stable;updateTranscript();}});
         }catch(Exception e){tell("مشكلة في التعرّف: "+e.getMessage());}
         finally{frame.close();}
       });
