@@ -48,14 +48,15 @@ public final class MainActivity extends ComponentActivity {
   private static final String[] LABELS={"ع","ال","أ","ب","د","ط","ض","ف","ج","غ","ه","ه","ج","ك","خ","لا","ل","م","ن","ر","ص","س","ش","ت","ط","ث","ذ","ت","و","ى","ي","ز"};
   private final ExecutorService worker=Executors.newSingleThreadExecutor();
   private final PredictionGate gate=new PredictionGate();
-  private Interpreter model;
+  private Interpreter model,landmarkModel;
+  private volatile boolean landmarkMode=false;
   private HandLandmarker handTracker;
   private ProcessCameraProvider provider;
   private PreviewView preview;
   private TextView message,recognized,transcript;
-  private String sentence="",lastSign="";
-  private int streak=0, cameraFacing=CameraSelector.LENS_FACING_FRONT;
-  private long lastInference=0,lastCommit=0;
+  private String sentence="";
+  private int cameraFacing=CameraSelector.LENS_FACING_FRONT;
+  private long lastInference=0;
   private boolean alive=true;
   private TextToSpeech speaker;
 
@@ -79,7 +80,15 @@ public final class MainActivity extends ComponentActivity {
           .setBaseOptions(base).setRunningMode(RunningMode.IMAGE).setNumHands(1)
           .setMinHandDetectionConfidence(.5f).setMinHandPresenceConfidence(.5f).setMinTrackingConfidence(.5f).build();
         handTracker=HandLandmarker.createFromOptions(this,opts);
-        tell("نموذج الحروف جاهز • ٣٢ تصنيفاً • يعمل بدون إنترنت");
+        try {
+          byte[] alternate=readAsset("hf_landmarks.tflite");
+          ByteBuffer altBuffer=ByteBuffer.allocateDirect(alternate.length).order(ByteOrder.nativeOrder());
+          altBuffer.put(alternate);altBuffer.rewind();
+          landmarkModel=new Interpreter(altBuffer,new Interpreter.Options().setNumThreads(2));
+          int[] ai=landmarkModel.getInputTensor(0).shape(),ao=landmarkModel.getOutputTensor(0).shape();
+          if(ai.length!=2||ai[0]!=1||ai[1]!=63||ao.length!=2||ao[0]!=1||ao[1]!=43)throw new IllegalStateException("Landmark tensor mismatch");
+          tell("محرك RGB جاهز • محرك نقاط اليد التجريبي جاهز");
+        }catch(Exception ex){if(landmarkModel!=null){landmarkModel.close();landmarkModel=null;}tell("محرك RGB جاهز؛ المحرك التجريبي غير متاح");}
       } catch(Exception e){tell("تعذر تحميل النموذج: "+e.getMessage());}
     });
     if(ContextCompat.checkSelfPermission(this,Manifest.permission.CAMERA)==PackageManager.PERMISSION_GRANTED) openCamera();
@@ -110,6 +119,8 @@ public final class MainActivity extends ComponentActivity {
     buttons.addView(button("مسح",()->new AlertDialog.Builder(this).setTitle("مسح النص؟").setMessage("سيُحذف النص المحفوظ بالكامل.").setNegativeButton("إلغاء",null).setPositiveButton("مسح",(d,w)->{sentence="";gate.reset();updateTranscript();}).show()),new LinearLayout.LayoutParams(0,dp(50),1));
     buttons.addView(button("مسافة",()->{sentence+=" ";updateTranscript();}),new LinearLayout.LayoutParams(0,dp(50),1));
     content.addView(buttons);
+    content.addView(button("كرر آخر حرف يدويًا",()->{String s=gate.lastAccepted();if(!s.isEmpty()){sentence+=s;updateTranscript();}else Toast.makeText(this,"لم يتم اعتماد حرف بعد",Toast.LENGTH_SHORT).show();}));
+    content.addView(button("تبديل المحرك: RGB / نقاط اليد (تجريبي)",()->{if(landmarkModel==null){Toast.makeText(this,"المحرك التجريبي غير متاح",Toast.LENGTH_LONG).show();return;}landmarkMode=!landmarkMode;gate.reset();tell(landmarkMode?"محرك نقاط اليد: ٤٣ فئة — تجريبي ولم تُقَس دقته على جهازك":"محرك صور RGB: ٣٢ فئة");}));
     LinearLayout tools=new LinearLayout(this);
     tools.addView(button("استماع 🔊",()->{if(speaker!=null&&!sentence.isEmpty())speaker.speak(sentence,TextToSpeech.QUEUE_FLUSH,null,"arabic");}),new LinearLayout.LayoutParams(0,dp(50),1));
     tools.addView(button("نسخ",()->{((ClipboardManager)getSystemService(CLIPBOARD_SERVICE)).setPrimaryClip(ClipData.newPlainText("ArabicSignFusion",sentence));Toast.makeText(this,"تم النسخ",Toast.LENGTH_SHORT).show();}),new LinearLayout.LayoutParams(0,dp(50),1));
@@ -149,10 +160,11 @@ public final class MainActivity extends ComponentActivity {
           if(!alive||model==null||handTracker==null||now-lastInference<700)return;
           lastInference=now;
           Result result=infer(frame.toBitmap(),frame.getImageInfo().getRotationDegrees(),cameraFacing==CameraSelector.LENS_FACING_FRONT);
-          if(result==null){gate.update(null);runOnUiThread(()->{if(alive)recognized.setText("لا توجد إشارة واضحة");});return;}
+          if(result==null){gate.update(null,0f,0f,false);runOnUiThread(()->{if(alive)recognized.setText("لا توجد إشارة واضحة");});return;}
           final String s=result.sign;final int percent=Math.round(result.confidence*100);
-          String stable=gate.update(s);
-          runOnUiThread(()->{if(alive)recognized.setText(s+" • "+percent+"%");});
+          final boolean sure=result.confidence>=.66f && result.margin>=.13f;
+          String stable=gate.update(s,result.confidence,result.margin,true);
+          runOnUiThread(()->{if(alive)recognized.setText(sure?s+" • "+percent+"%": "إشارة غير مؤكدة • عدّل وضع اليد ("+percent+"%)");});
           if(stable!=null)runOnUiThread(()->{if(alive){sentence+=stable;updateTranscript();}});
         }catch(Exception e){tell("مشكلة في التعرّف: "+e.getMessage());}
         finally{frame.close();}
@@ -162,7 +174,7 @@ public final class MainActivity extends ComponentActivity {
       tell("وجّه يدك نحو الكاميرا");
     }catch(Exception e){tell("ربط الكاميرا: "+e.getMessage());}
   }
-  private static final class Result {final String sign;final float confidence;Result(String s,float p){sign=s;confidence=p;}}
+  private static final class Result {final String sign;final float confidence,margin;Result(String s,float p,float m){sign=s;confidence=p;margin=m;}}
   private Result infer(Bitmap frame,int rotation,boolean selfie){
     Matrix m=new Matrix();m.postRotate(rotation);
     Bitmap upright=Bitmap.createBitmap(frame,0,0,frame.getWidth(),frame.getHeight(),m,true);
@@ -179,16 +191,22 @@ public final class MainActivity extends ComponentActivity {
       int x1=Math.max(0,(int)(centerX-side/2)),y1=Math.max(0,(int)(centerY-side/2));
       int x2=Math.min(image.getWidth(),(int)(centerX+side/2)),y2=Math.min(image.getHeight(),(int)(centerY+side/2));
       if(x2-x1<20||y2-y1<20)return null;
+      if(landmarkMode&&landmarkModel!=null){
+        float[][] input=new float[1][63];
+        for(int k=0;k<21;k++){NormalizedLandmark v=points.get(k);input[0][k*3]=v.x();input[0][k*3+1]=v.y();input[0][k*3+2]=v.z();}
+        float[][] output=new float[1][43];landmarkModel.run(input,output);
+        ClassScores.Choice choice=ClassScores.select(output[0],LandmarkLabels.GLYPHS);
+        return choice==null?null:new Result(choice.label,choice.confidence,choice.margin);
+      }
       Bitmap crop=Bitmap.createBitmap(image,x1,y1,x2-x1,y2-y1);
       Bitmap small=Bitmap.createScaledBitmap(crop,64,64,true);
       int[] pixels=new int[64*64];small.getPixels(pixels,0,64,0,0,64,64);
       float[][][][] data=new float[1][64][64][3];
       for(int i=0;i<pixels.length;i++){int value=pixels[i],y=i/64,x=i%64;data[0][y][x][0]=((value>>>16)&255)/255f;data[0][y][x][1]=((value>>>8)&255)/255f;data[0][y][x][2]=(value&255)/255f;}
       float[][] output=new float[1][32];model.run(data,output);
-      int best=-1;float conf=.67f;
-      for(int i=0;i<32;i++)if(Float.isFinite(output[0][i])&&output[0][i]>conf){best=i;conf=output[0][i];}
+      ClassScores.Choice choice=ClassScores.select(output[0],LABELS);
       if(small!=crop)small.recycle();crop.recycle();
-      return best<0?null:new Result(LABELS[best],conf);
+      return choice==null?null:new Result(choice.label,choice.confidence,choice.margin);
     }finally{if(image!=upright)image.recycle();if(upright!=frame)upright.recycle();}
   }
   @Override public void onRequestPermissionsResult(int req,String[] perms,int[] grants){
@@ -197,7 +215,7 @@ public final class MainActivity extends ComponentActivity {
   }
   @Override protected void onDestroy(){
     alive=false;if(provider!=null)provider.unbindAll();
-    worker.execute(()->{try{if(handTracker!=null)handTracker.close();if(model!=null)model.close();}catch(Exception ignored){}});
+    worker.execute(()->{try{if(handTracker!=null)handTracker.close();if(model!=null)model.close();if(landmarkModel!=null)landmarkModel.close();}catch(Exception ignored){}});
     worker.shutdown();
     if(speaker!=null){speaker.stop();speaker.shutdown();}
     super.onDestroy();

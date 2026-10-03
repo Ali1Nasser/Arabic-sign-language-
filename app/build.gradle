@@ -2,7 +2,7 @@ plugins { id 'com.android.application' }
 android {
  namespace 'org.openarabicsign.fusion'
  compileSdk 35
- defaultConfig { applicationId 'org.openarabicsign.fusion'; minSdk 26; targetSdk 34; versionCode 4; versionName '0.4.0-unified' }
+ defaultConfig { applicationId 'org.openarabicsign.fusion'; minSdk 26; targetSdk 34; versionCode 5; versionName '0.5.0-stability' }
  compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
  packaging { jniLibs { useLegacyPackaging = true } }
 }

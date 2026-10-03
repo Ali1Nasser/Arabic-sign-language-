@@ -1,0 +1,1 @@
+Hugging Face model katyy2000/arabic-sign-language-recognition: MIT per model card, https://huggingface.co/katyy2000/arabic-sign-language-recognition. Source revision pinned and verified. Overall app retains GPL-3.0 obligations for pavlyhalim source/model.

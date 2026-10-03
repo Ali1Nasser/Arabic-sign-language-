@@ -1,7 +1,7 @@
 name: Android APK - pretrained Arabic alphabet
 on:
   push:
-    branches: [feature/arabic-sign-fusion]
+    branches: [feature/arabic-sign-fusion, feature/arabic-sign-fusion-v05]
   workflow_dispatch:
   pull_request:
     branches: [main]
@@ -25,6 +25,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install 'tensorflow-cpu==2.15.1'
           python tools/prepare_model.py
+          python tools/prepare_landmark_model.py
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
@@ -35,12 +36,12 @@ jobs:
       - name: Test recognition stabilization
         run: |
           mkdir -p /tmp/gate_classes
-          javac -d /tmp/gate_classes app/src/main/java/org/openarabicsign/fusion/PredictionGate.java tools/TestGate.java
+          javac -d /tmp/gate_classes app/src/main/java/org/openarabicsign/fusion/PredictionGate.java app/src/main/java/org/openarabicsign/fusion/ClassScores.java app/src/main/java/org/openarabicsign/fusion/LandmarkLabels.java tools/TestGate.java
           java -cp /tmp/gate_classes TestGate
       - name: Build installable debug APK
         run: gradle --no-daemon :app:assembleDebug
       - uses: actions/upload-artifact@v4
         with:
-          name: ArabicSignFusion-Unified-v04-APK
+          name: ArabicSignFusion-v05-APK
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error

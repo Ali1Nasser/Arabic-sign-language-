@@ -1,0 +1,20 @@
+name: Optional ArSL landmark model audit
+on:
+  push:
+    branches: [feature/arabic-sign-fusion-v05]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Validate optional HF model without executing encoder pickle
+        run: |
+          python -m pip install 'tensorflow-cpu==2.15.1'
+          python tools/probe_landmark_model.py
