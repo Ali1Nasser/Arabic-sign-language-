@@ -1,0 +1,8 @@
+.gradle/
+/build/
+/app/build/
+*.iml
+local.properties
+/app/src/main/assets/*.h5
+/app/src/main/assets/*.tflite
+/app/src/main/assets/*.task
